@@ -593,14 +593,13 @@ export class KtdGridComponent implements OnChanges, AfterContentInit, AfterConte
                          * some utilities from 'react-grid-layout' would not work as expected.
                          */
                         const currentLayout: KtdGridLayout = newLayout || this.layout;
-                        newLayout=currentLayout;
-
+                        // TODO: cloning the full layout can be expensive! We should investigate workarounds, maybe by using a ktdGridItemDragging function that does not mutate the layout
+                        newLayout=structuredClone(originalLayout);
                         // Get the correct newStateFunc depending on if we are dragging or resizing
                         if (type === 'drag' && gridItems.length > 1) {
-
                             if (this.multiItemAlgorithm === 'static') {
                                 const {layout, draggedItemPos} = ktdGridItemsDragging(gridItems, {
-                                    layout: originalLayout,
+                                    layout: newLayout,
                                     rowHeight: this.rowHeight,
                                     height: this.height,
                                     cols: this.cols,
@@ -613,13 +612,9 @@ export class KtdGridComponent implements OnChanges, AfterContentInit, AfterConte
                                     dragElementsClientRect: dragElemClientRect,
                                     scrollDifference
                                 });
-
                                 newLayout = layout;
                                 draggedItemsPos = draggedItemPos;
                             } else {
-                                // TODO: cloning the full layout can be expensive! We should investigate workarounds, maybe by using a ktdGridItemDragging function that does not mutate the layout
-
-                                newLayout = structuredClone(originalLayout);
                                 // Sort grid items from top-left to bottom-right
                                 const gridItemsSorted = gridItems.sort((a, b) => {
                                     const rectA = dragElemClientRect[a.id];

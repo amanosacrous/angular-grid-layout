@@ -165,7 +165,6 @@ export function compact(
     const sorted = sortLayoutItems(layout, compactType);
     // Holding for new items.
     const out = Array(layout.length);
-
     for (let i = 0, len = sorted.length; i < len; i++) {
         let l = cloneLayoutItem(sorted[i]);
 
@@ -214,13 +213,6 @@ function resolveCompactionCollision(
         if (otherItem.static) {
             continue;
         }
-
-        // Optimization: we can break early if we know we're past this el
-        // We can do this b/c it's a sorted layout
-        if (otherItem.y > item.y + item.h) {
-            break;
-        }
-
         if (collides(item, otherItem)) {
             resolveCompactionCollision(
                 layout,
@@ -281,7 +273,6 @@ export function compactItem(
             }
         }
     }
-
     // Ensure that there are no negative positions
     l.y = Math.max(l.y, 0);
     l.x = Math.max(l.x, 0);

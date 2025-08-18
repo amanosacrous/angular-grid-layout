@@ -185,30 +185,39 @@ export function ktdGridItemsDragging(gridItems: KtdGridItemComponent[], config: 
 
     const layoutItemsToMove:  KtdDictionary<KtdGridLayoutItem>={};
     const gridRelPos: KtdDictionary<{x:number,y:number}>={}
+    let maxXMove: number = 0;
+    let maxYMove: number = 0;
     gridItems.forEach((gridItem: KtdGridItemComponent)=>{
         const offsetX = clientStartX - dragElementsClientRect[gridItem.id].left;
         const offsetY = clientStartY - dragElementsClientRect[gridItem.id].top;
         // Calculate position relative to the grid element.
         gridRelPos[gridItem.id]={
             x: clientX - gridElementLeftPosition - offsetX,
-            y:clientY - gridElementTopPosition - offsetY
+            y: clientY - gridElementTopPosition - offsetY
         };
-
         // Get layout item position
         layoutItemsToMove[gridItem.id] = {
             ...draggingElemPrevItem[gridItem.id],
             x: screenXToGridX(gridRelPos[gridItem.id].x , config.cols, gridElemClientRect.width, config.gap),
             y: screenYToGridY(gridRelPos[gridItem.id].y, rowHeightInPixels, gridElemClientRect.height, config.gap)
         };
-        // Correct the values if they overflow, since 'moveElement' function doesn't do it
-        layoutItemsToMove[gridItem.id].x = Math.max(0, layoutItemsToMove[gridItem.id].x);
-        layoutItemsToMove[gridItem.id].y = Math.max(0, layoutItemsToMove[gridItem.id].y);
-        if (layoutItemsToMove[gridItem.id].x + layoutItemsToMove[gridItem.id].w > config.cols) {
-            layoutItemsToMove[gridItem.id].x = Math.max(0, config.cols - layoutItemsToMove[gridItem.id].w);
+        if(0>layoutItemsToMove[gridItem.id].x && maxXMove>layoutItemsToMove[gridItem.id].x){
+            maxXMove = layoutItemsToMove[gridItem.id].x;
+        }
+        if(0>layoutItemsToMove[gridItem.id].y && maxYMove>layoutItemsToMove[gridItem.id].y){
+            maxYMove = layoutItemsToMove[gridItem.id].y;
+        }
+        if(layoutItemsToMove[gridItem.id].x + layoutItemsToMove[gridItem.id].w > config.cols && maxXMove<layoutItemsToMove[gridItem.id].w + layoutItemsToMove[gridItem.id].x - config.cols){
+            maxXMove = layoutItemsToMove[gridItem.id].w + layoutItemsToMove[gridItem.id].x - config.cols
         }
     })
-
-
+    Object.entries(layoutItemsToMove).forEach(([key, item]) => {
+        layoutItemsToMove[key] = {
+            ...item,
+            x: item.x - maxXMove,
+            y: item.y - maxYMove
+        };
+    })
 
     // Parse to LayoutItem array data in order to use 'react.grid-layout' utils
     const layoutItems: LayoutItem[] = config.layout;
@@ -230,13 +239,13 @@ export function ktdGridItemsDragging(gridItems: KtdGridItemComponent[], config: 
         layoutItems,
         draggedLayoutItem,
         true,
+        config.preventCollision,
         compactionType,
         config.cols,
     );
 
     newLayoutItems = compact(newLayoutItems, compactionType, config.cols);
     gridItems.forEach(gridItem=>newLayoutItems.find(layoutItem=>layoutItem.id === gridItem.id)!.static = false);
-    newLayoutItems = compact(newLayoutItems, compactionType, config.cols);
 
     const draggedItemPos: KtdDictionary<KtdGridItemRect>={};
     gridItems.forEach(gridItem=>

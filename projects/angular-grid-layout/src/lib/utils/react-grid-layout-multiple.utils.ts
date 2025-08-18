@@ -27,15 +27,19 @@ export function moveElements(
         y: number | null | undefined
     }[],
     isUserAction: boolean | null | undefined,
+    preventCollision: boolean | null | undefined,
     compactType: CompactType,
-    cols: number,
-    movingUpUser?:boolean
+    cols: number
 ): Layout {
+    // Short-circuit if nothing to do.
+    if(items.every((item)=>item.l.y === item.y && item.l.x === item.x)){
+        return layout;
+    }
+
     const oldX = items[0].l.x;
     const oldY = items[0].l.y;
     const oldCoord = {}
 
-    items.forEach
     items.forEach((item)=>{
         oldCoord[item.l.id]={
             x: item.l.x,
@@ -48,7 +52,6 @@ export function moveElements(
            item.l.y = item.y;
         }
         item.l.moved = true;
-
     })
 
     let sorted = sortLayoutItems(layout, compactType);
@@ -65,45 +68,46 @@ export function moveElements(
     if (movingUp) {
         sorted = sorted.reverse();
     }
-    if(isUserAction){
-        movingUpUser = movingUp;
-    }
 
     items.forEach((item)=>{
         const collisions: LayoutItem[] = getAllCollisions(sorted, item.l);
-        // Move each item that collides away from this element.
-        for (let i = 0, len = collisions.length; i < len; i++) {
-            const collision = collisions[i];
-            logMulti(
-                `Resolving collision between ${items}] and ${
-                    collision.id
-                } at [${collision.x},${collision.y}]`,
-            );
-            // Short circuit so we can't infinite loop
-            if (collision.moved) {
-                continue;
-            }
-            // Don't move static items - we have to move *this* element away
-            if (collision.static) {
-                layout = moveElementsAwayFromCollision(
-                    layout,
-                    collision,
-                    item.l,
-                    isUserAction,
-                    compactType,
-                    cols,
-                    movingUpUser
+        if (preventCollision && collisions.length) {
+            item.l.x = oldCoord[item.l.id].x;
+            item.l.y = oldCoord[item.l.id].y;
+            item.l.moved = false;
+        } else {
+            // Move each item that collides away from this element.
+            for (let i = 0, len = collisions.length; i < len; i++) {
+                const collision = collisions[i];
+                logMulti(
+                    `Resolving collision between ${items}] and ${
+                        collision.id
+                    } at [${collision.x},${collision.y}]`,
                 );
-            } else {
-                layout = moveElementsAwayFromCollision(
-                    layout,
-                    item.l,
-                    collision,
-                    isUserAction,
-                    compactType,
-                    cols,
-                    movingUpUser
-                );
+                // Short circuit so we can't infinite loop
+                if (collision.moved) {
+                    continue;
+                }
+                // Don't move static items - we have to move *this* element away
+                if (collision.static) {
+                    layout = moveElementsAwayFromCollision(
+                        layout,
+                        collision,
+                        item.l,
+                        isUserAction,
+                        compactType,
+                        cols
+                    );
+                } else {
+                    layout = moveElementsAwayFromCollision(
+                        layout,
+                        item.l,
+                        collision,
+                        isUserAction,
+                        compactType,
+                        cols
+                    );
+                }
             }
         }
     });
@@ -118,7 +122,6 @@ export function moveElementsAwayFromCollision(
     isUserAction: boolean | null | undefined,
     compactType: CompactType,
     cols: number,
-    movingUp: boolean | undefined
 ): Layout {
     const compactH = compactType === 'horizontal';
     // Compact vertically if not set to horizontal
@@ -160,9 +163,9 @@ export function moveElementsAwayFromCollision(
                     y: compactV ? fakeItem.y : undefined,
                 }],
                 isUserAction,
+                preventCollision,
                 compactType,
-                cols,
-                movingUp
+                cols
             );
         }
     }
@@ -175,9 +178,9 @@ export function moveElementsAwayFromCollision(
             y: compactV ? itemToMove.y+1 : undefined,
         }],
         isUserAction,
+        preventCollision,
         compactType,
-        cols,
-        movingUp
+        cols
     );
 }
 

@@ -64,7 +64,8 @@
             (resizeStarted)="onResizeStarted($event)"
             (dragEnded)="onDragEnded($event)"
             (resizeEnded)="onResizeEnded($event)"
-            (layoutUpdated)="onLayoutUpdated($event)">
+            (layoutUpdated)="onLayoutUpdated($event)"
+            multiItemAlgorithm="static">
             <ktd-grid-item
                 *ngFor="let item of layout; trackBy: trackById"
                 [id]="item.id"
