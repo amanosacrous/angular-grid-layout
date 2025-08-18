@@ -140,7 +140,7 @@ function resolveCompactionCollision(layout, item, moveToCoord, axis) {
         }
         // Optimization: we can break early if we know we're past this el
         // We can do this b/c it's a sorted layout
-        if (otherItem.y > item.y + item.h) {
+        if (otherItem[axis] > moveToCoord + item[sizeProp]) {
             break;
         }
         if (collides(item, otherItem)) {
@@ -649,11 +649,14 @@ const DEBUG = false;
  * @param  {Number}     [x]               X position in grid units.
  * @param  {Number}     [y]               Y position in grid units.
  */
-function moveElements(layout, items, isUserAction, compactType, cols, movingUpUser) {
+function moveElements(layout, items, isUserAction, preventCollision, compactType, cols) {
+    // Short-circuit if nothing to do.
+    if (items.every((item) => item.l.y === item.y && item.l.x === item.x)) {
+        return layout;
+    }
     const oldX = items[0].l.x;
     const oldY = items[0].l.y;
     const oldCoord = {};
-    items.forEach;
     items.forEach((item) => {
         oldCoord[item.l.id] = {
             x: item.l.x,
@@ -680,31 +683,35 @@ function moveElements(layout, items, isUserAction, compactType, cols, movingUpUs
     if (movingUp) {
         sorted = sorted.reverse();
     }
-    if (isUserAction) {
-        movingUpUser = movingUp;
-    }
     items.forEach((item) => {
         const collisions = getAllCollisions(sorted, item.l);
-        // Move each item that collides away from this element.
-        for (let i = 0, len = collisions.length; i < len; i++) {
-            const collision = collisions[i];
-            logMulti(`Resolving collision between ${items}] and ${collision.id} at [${collision.x},${collision.y}]`);
-            // Short circuit so we can't infinite loop
-            if (collision.moved) {
-                continue;
-            }
-            // Don't move static items - we have to move *this* element away
-            if (collision.static) {
-                layout = moveElementsAwayFromCollision(layout, collision, item.l, isUserAction, compactType, cols, movingUpUser);
-            }
-            else {
-                layout = moveElementsAwayFromCollision(layout, item.l, collision, isUserAction, compactType, cols, movingUpUser);
+        if (preventCollision && collisions.length) {
+            item.l.x = oldCoord[item.l.id].x;
+            item.l.y = oldCoord[item.l.id].y;
+            item.l.moved = false;
+        }
+        else {
+            // Move each item that collides away from this element.
+            for (let i = 0, len = collisions.length; i < len; i++) {
+                const collision = collisions[i];
+                logMulti(`Resolving collision between ${items}] and ${collision.id} at [${collision.x},${collision.y}]`);
+                // Short circuit so we can't infinite loop
+                if (collision.moved) {
+                    continue;
+                }
+                // Don't move static items - we have to move *this* element away
+                if (collision.static) {
+                    layout = moveElementsAwayFromCollision(layout, collision, item.l, isUserAction, compactType, cols);
+                }
+                else {
+                    layout = moveElementsAwayFromCollision(layout, item.l, collision, isUserAction, compactType, cols);
+                }
             }
         }
     });
     return layout;
 }
-function moveElementsAwayFromCollision(layout, collidesWith, itemToMove, isUserAction, compactType, cols, movingUp) {
+function moveElementsAwayFromCollision(layout, collidesWith, itemToMove, isUserAction, compactType, cols) {
     const compactH = compactType === 'horizontal';
     // Compact vertically if not set to horizontal
     const compactV = compactType !== 'horizontal';
@@ -734,14 +741,14 @@ function moveElementsAwayFromCollision(layout, collidesWith, itemToMove, isUserA
                     l: itemToMove,
                     x: compactH ? fakeItem.x : undefined,
                     y: compactV ? fakeItem.y : undefined,
-                }], isUserAction, compactType, cols, movingUp);
+                }], isUserAction, preventCollision, compactType, cols);
         }
     }
     return moveElements(layout, [{
             l: itemToMove,
             x: compactH ? itemToMove.x + 1 : undefined,
             y: compactV ? itemToMove.y + 1 : undefined,
-        }], isUserAction, compactType, cols, movingUp);
+        }], isUserAction, preventCollision, compactType, cols);
 }
 function logMulti(...args) {
     if (!DEBUG) {
@@ -772,6 +779,15 @@ function ktdGridCompact(layout, compactType, cols) {
     return compact(layout, compactType, cols)
         // Prune react-grid-layout compact extra properties.
         .map(item => ({ id: item.id, x: item.x, y: item.y, w: item.w, h: item.h, minW: item.minW, minH: item.minH, maxW: item.maxW, maxH: item.maxH }));
+}
+/**
+ * Call react-grid-layout utils 'sortLayoutItems()' function to return the 'layout' sorted by 'compactType'
+ * @param {Layout} layout
+ * @param {CompactType} compactType
+ * @returns {Layout}
+ */
+function ktdGridSortLayoutItems(layout, compactType) {
+    return sortLayoutItems(layout, compactType);
 }
 function screenXToGridX(screenXPos, cols, width, gap) {
     if (cols <= 1) {
@@ -889,6 +905,8 @@ function ktdGridItemsDragging(gridItems, config, compactionType, draggingData) {
         : config.rowHeight;
     const layoutItemsToMove = {};
     const gridRelPos = {};
+    let maxXMove = 0;
+    let maxYMove = 0;
     gridItems.forEach((gridItem) => {
         const offsetX = clientStartX - dragElementsClientRect[gridItem.id].left;
         const offsetY = clientStartY - dragElementsClientRect[gridItem.id].top;
@@ -903,12 +921,24 @@ function ktdGridItemsDragging(gridItems, config, compactionType, draggingData) {
             x: screenXToGridX(gridRelPos[gridItem.id].x, config.cols, gridElemClientRect.width, config.gap),
             y: screenYToGridY(gridRelPos[gridItem.id].y, rowHeightInPixels, gridElemClientRect.height, config.gap)
         };
-        // Correct the values if they overflow, since 'moveElement' function doesn't do it
-        layoutItemsToMove[gridItem.id].x = Math.max(0, layoutItemsToMove[gridItem.id].x);
-        layoutItemsToMove[gridItem.id].y = Math.max(0, layoutItemsToMove[gridItem.id].y);
-        if (layoutItemsToMove[gridItem.id].x + layoutItemsToMove[gridItem.id].w > config.cols) {
-            layoutItemsToMove[gridItem.id].x = Math.max(0, config.cols - layoutItemsToMove[gridItem.id].w);
+        // Determine the maximum X and Y displacement where an item has gone outside the grid
+        if (0 > layoutItemsToMove[gridItem.id].x && maxXMove > layoutItemsToMove[gridItem.id].x) {
+            maxXMove = layoutItemsToMove[gridItem.id].x;
         }
+        if (0 > layoutItemsToMove[gridItem.id].y && maxYMove > layoutItemsToMove[gridItem.id].y) {
+            maxYMove = layoutItemsToMove[gridItem.id].y;
+        }
+        if (layoutItemsToMove[gridItem.id].x + layoutItemsToMove[gridItem.id].w > config.cols && maxXMove < layoutItemsToMove[gridItem.id].w + layoutItemsToMove[gridItem.id].x - config.cols) {
+            maxXMove = layoutItemsToMove[gridItem.id].w + layoutItemsToMove[gridItem.id].x - config.cols;
+        }
+    });
+    // Correct all the x and y position of the group decreasing/increasing the maximum overflow of an item, to maintain the structure
+    Object.entries(layoutItemsToMove).forEach(([key, item]) => {
+        layoutItemsToMove[key] = {
+            ...item,
+            x: item.x - maxXMove,
+            y: item.y - maxYMove
+        };
     });
     // Parse to LayoutItem array data in order to use 'react.grid-layout' utils
     const layoutItems = config.layout;
@@ -921,9 +951,11 @@ function ktdGridItemsDragging(gridItems, config, compactionType, draggingData) {
             y: layoutItemsToMove[gridItem.id].y
         };
     });
-    let newLayoutItems = moveElements(layoutItems, draggedLayoutItem, true, compactionType, config.cols);
+    let newLayoutItems = moveElements(layoutItems, draggedLayoutItem, true, config.preventCollision, compactionType, config.cols);
+    // Compact with selected items as static to preserve the structure of the selected items group
     newLayoutItems = compact(newLayoutItems, compactionType, config.cols);
     gridItems.forEach(gridItem => newLayoutItems.find(layoutItem => layoutItem.id === gridItem.id).static = false);
+    // Compact normal to display the layout correctly
     newLayoutItems = compact(newLayoutItems, compactionType, config.cols);
     const draggedItemPos = {};
     gridItems.forEach(gridItem => draggedItemPos[gridItem.id] = {
@@ -1924,7 +1956,6 @@ class KtdGridComponent {
         this._cols = 6;
         this._gap = 0;
         this._height = null;
-        this.multiItemAlgorithm = 'default';
         this._backgroundConfig = null;
         /** References to the views of the placeholder elements. */
         this.placeholderRef = {};
@@ -2114,79 +2145,30 @@ class KtdGridComponent {
                  * some utilities from 'react-grid-layout' would not work as expected.
                  */
                 const currentLayout = newLayout || this.layout;
-                newLayout = currentLayout;
                 // Get the correct newStateFunc depending on if we are dragging or resizing
                 if (type === 'drag' && gridItems.length > 1) {
-                    if (this.multiItemAlgorithm === 'static') {
-                        const { layout, draggedItemPos } = ktdGridItemsDragging(gridItems, {
-                            layout: originalLayout,
-                            rowHeight: this.rowHeight,
-                            height: this.height,
-                            cols: this.cols,
-                            preventCollision: this.preventCollision,
-                            gap: this.gap,
-                        }, this.compactType, {
-                            pointerDownEvent,
-                            pointerDragEvent,
-                            gridElemClientRect,
-                            dragElementsClientRect: dragElemClientRect,
-                            scrollDifference
-                        });
-                        newLayout = layout;
-                        draggedItemsPos = draggedItemPos;
-                    }
-                    else {
-                        // TODO: cloning the full layout can be expensive! We should investigate workarounds, maybe by using a ktdGridItemDragging function that does not mutate the layout
-                        newLayout = structuredClone(originalLayout);
-                        // Sort grid items from top-left to bottom-right
-                        const gridItemsSorted = gridItems.sort((a, b) => {
-                            const rectA = dragElemClientRect[a.id];
-                            const rectB = dragElemClientRect[b.id];
-                            // First sort by top, then by left
-                            if (rectA.top !== rectB.top) {
-                                return rectA.top - rectB.top;
-                            }
-                            return rectA.left - rectB.left;
-                        });
-                        // Virtually put aLL elements at the infinity bottom if compact vertical and infinity right if compact horizontal!
-                        newLayout.forEach(layoutItem => {
-                            // If it is a dragged item, move to infinity!! We cleanup the space for the drag
-                            if (dragElemClientRect[layoutItem.id]) {
-                                if (this.compactType !== 'horizontal') {
-                                    layoutItem.y = Infinity;
-                                }
-                                if (this.compactType !== 'vertical') {
-                                    layoutItem.x = Infinity;
-                                }
-                            }
-                        });
-                        newLayout = compact(newLayout, this.compactType, this.cols);
-                        gridItemsSorted.forEach((gridItem) => {
-                            const { layout, draggedItemPos } = ktdGridItemDragging(gridItem, {
-                                layout: newLayout,
-                                rowHeight: this.rowHeight,
-                                height: this.height,
-                                cols: this.cols,
-                                preventCollision: this.preventCollision,
-                                gap: this.gap,
-                            }, this.compactType, {
-                                pointerDownEvent,
-                                pointerDragEvent,
-                                gridElemClientRect,
-                                dragElemClientRect: dragElemClientRect[gridItem.id],
-                                scrollDifference
-                            });
-                            // const pre = newLayout.find(item => item.id === gridItem.id);
-                            // const act = layout.find(item => item.id === gridItem.id);
-                            // const orig = originalLayout.find(item => item.id === gridItem.id);
-                            // console.log(`Calc dragging ${gridItem.id}`, `pre: (${pre?.x}, ${pre?.y})`, `orig: (${orig?.x}, ${orig?.y})`, `act: (${act?.x}, ${act?.y})`);
-                            newLayout = layout;
-                            draggedItemsPos[gridItem.id] = draggedItemPos;
-                        });
-                    }
+                    // TODO: cloning the full layout can be expensive! We should investigate workarounds, maybe by using a ktdGridItemDragging function that does not mutate the layout
+                    newLayout = structuredClone(originalLayout);
+                    const { layout, draggedItemPos } = ktdGridItemsDragging(gridItems, {
+                        layout: newLayout,
+                        rowHeight: this.rowHeight,
+                        height: this.height,
+                        cols: this.cols,
+                        preventCollision: this.preventCollision,
+                        gap: this.gap,
+                    }, this.compactType, {
+                        pointerDownEvent,
+                        pointerDragEvent,
+                        gridElemClientRect,
+                        dragElementsClientRect: dragElemClientRect,
+                        scrollDifference
+                    });
+                    newLayout = layout;
+                    draggedItemsPos = draggedItemPos;
                 }
                 else {
                     const calcNewStateFunc = type === 'drag' ? ktdGridItemDragging : ktdGridItemResizing;
+                    newLayout = currentLayout;
                     gridItems.forEach((gridItem) => {
                         const { layout, draggedItemPos } = calcNewStateFunc(gridItem, {
                             layout: newLayout,
@@ -2340,7 +2322,7 @@ class KtdGridComponent {
         this.placeholder[gridItemId] = this.placeholderRef[gridItemId] = null;
     }
     static { this.ɵfac = i0.ɵɵngDeclareFactory({ minVersion: "12.0.0", version: "16.2.12", ngImport: i0, type: KtdGridComponent, deps: [{ token: KtdGridService }, { token: i0.ElementRef }, { token: i0.ViewContainerRef }, { token: i0.Renderer2 }, { token: i0.NgZone }, { token: DOCUMENT }], target: i0.ɵɵFactoryTarget.Component }); }
-    static { this.ɵcmp = i0.ɵɵngDeclareComponent({ minVersion: "14.0.0", version: "16.2.12", type: KtdGridComponent, isStandalone: true, selector: "ktd-grid", inputs: { scrollableParent: "scrollableParent", compactOnPropsChange: "compactOnPropsChange", preventCollision: "preventCollision", scrollSpeed: "scrollSpeed", compactType: "compactType", rowHeight: "rowHeight", cols: "cols", layout: "layout", gap: "gap", height: "height", multiItemAlgorithm: "multiItemAlgorithm", selectedItemsIds: "selectedItemsIds", backgroundConfig: "backgroundConfig" }, outputs: { layoutUpdated: "layoutUpdated", dragStarted: "dragStarted", resizeStarted: "resizeStarted", dragEnded: "dragEnded", resizeEnded: "resizeEnded", gridItemResize: "gridItemResize" }, providers: [
+    static { this.ɵcmp = i0.ɵɵngDeclareComponent({ minVersion: "14.0.0", version: "16.2.12", type: KtdGridComponent, isStandalone: true, selector: "ktd-grid", inputs: { scrollableParent: "scrollableParent", compactOnPropsChange: "compactOnPropsChange", preventCollision: "preventCollision", scrollSpeed: "scrollSpeed", compactType: "compactType", rowHeight: "rowHeight", cols: "cols", layout: "layout", gap: "gap", height: "height", selectedItemsIds: "selectedItemsIds", backgroundConfig: "backgroundConfig" }, outputs: { layoutUpdated: "layoutUpdated", dragStarted: "dragStarted", resizeStarted: "resizeStarted", dragEnded: "dragEnded", resizeEnded: "resizeEnded", gridItemResize: "gridItemResize" }, providers: [
             {
                 provide: GRID_ITEM_GET_RENDER_DATA_TOKEN,
                 useFactory: ktdGridItemGetRenderDataFactoryFunc,
@@ -2394,8 +2376,6 @@ i0.ɵɵngDeclareClassMetadata({ minVersion: "12.0.0", version: "16.2.12", ngImpo
             }], gap: [{
                 type: Input
             }], height: [{
-                type: Input
-            }], multiItemAlgorithm: [{
                 type: Input
             }], selectedItemsIds: [{
                 type: Input
@@ -2452,5 +2432,5 @@ i0.ɵɵngDeclareClassMetadata({ minVersion: "12.0.0", version: "16.2.12", ngImpo
  * Generated bundle index. Do not edit.
  */
 
-export { GRID_ITEM_GET_RENDER_DATA_TOKEN, KTD_GRID_DRAG_HANDLE, KTD_GRID_ITEM_PLACEHOLDER, KTD_GRID_RESIZE_HANDLE, KtdGridComponent, KtdGridDragHandle, KtdGridItemComponent, KtdGridItemPlaceholder, KtdGridModule, KtdGridResizeHandle, __gridItemGetRenderDataFactoryFunc, ktdGridCompact, ktdGridItemGetRenderDataFactoryFunc, ktdTrackById, parseRenderItemToPixels };
+export { GRID_ITEM_GET_RENDER_DATA_TOKEN, KTD_GRID_DRAG_HANDLE, KTD_GRID_ITEM_PLACEHOLDER, KTD_GRID_RESIZE_HANDLE, KtdGridComponent, KtdGridDragHandle, KtdGridItemComponent, KtdGridItemPlaceholder, KtdGridModule, KtdGridResizeHandle, __gridItemGetRenderDataFactoryFunc, ktdGridCompact, ktdGridItemGetRenderDataFactoryFunc, ktdGridSortLayoutItems, ktdTrackById, parseRenderItemToPixels };
 //# sourceMappingURL=katoid-angular-grid-layout.mjs.map

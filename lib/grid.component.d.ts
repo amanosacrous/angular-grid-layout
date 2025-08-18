@@ -97,7 +97,6 @@ export declare class KtdGridComponent implements OnChanges, AfterContentInit, Af
     get height(): number | null;
     set height(val: number | null);
     private _height;
-    multiItemAlgorithm: 'default' | 'static';
     /**
      * Multiple items drag/resize
      * A list of selected items to move (drag or resize) together as a group.
@@ -157,6 +156,6 @@ export declare class KtdGridComponent implements OnChanges, AfterContentInit, Af
     static ngAcceptInputType_compactOnPropsChange: BooleanInput;
     static ngAcceptInputType_preventCollision: BooleanInput;
     static ɵfac: i0.ɵɵFactoryDeclaration<KtdGridComponent, never>;
-    static ɵcmp: i0.ɵɵComponentDeclaration<KtdGridComponent, "ktd-grid", never, { "scrollableParent": { "alias": "scrollableParent"; "required": false; }; "compactOnPropsChange": { "alias": "compactOnPropsChange"; "required": false; }; "preventCollision": { "alias": "preventCollision"; "required": false; }; "scrollSpeed": { "alias": "scrollSpeed"; "required": false; }; "compactType": { "alias": "compactType"; "required": false; }; "rowHeight": { "alias": "rowHeight"; "required": false; }; "cols": { "alias": "cols"; "required": false; }; "layout": { "alias": "layout"; "required": false; }; "gap": { "alias": "gap"; "required": false; }; "height": { "alias": "height"; "required": false; }; "multiItemAlgorithm": { "alias": "multiItemAlgorithm"; "required": false; }; "selectedItemsIds": { "alias": "selectedItemsIds"; "required": false; }; "backgroundConfig": { "alias": "backgroundConfig"; "required": false; }; }, { "layoutUpdated": "layoutUpdated"; "dragStarted": "dragStarted"; "resizeStarted": "resizeStarted"; "dragEnded": "dragEnded"; "resizeEnded": "resizeEnded"; "gridItemResize": "gridItemResize"; }, ["_gridItems"], ["*"], true, never>;
+    static ɵcmp: i0.ɵɵComponentDeclaration<KtdGridComponent, "ktd-grid", never, { "scrollableParent": { "alias": "scrollableParent"; "required": false; }; "compactOnPropsChange": { "alias": "compactOnPropsChange"; "required": false; }; "preventCollision": { "alias": "preventCollision"; "required": false; }; "scrollSpeed": { "alias": "scrollSpeed"; "required": false; }; "compactType": { "alias": "compactType"; "required": false; }; "rowHeight": { "alias": "rowHeight"; "required": false; }; "cols": { "alias": "cols"; "required": false; }; "layout": { "alias": "layout"; "required": false; }; "gap": { "alias": "gap"; "required": false; }; "height": { "alias": "height"; "required": false; }; "selectedItemsIds": { "alias": "selectedItemsIds"; "required": false; }; "backgroundConfig": { "alias": "backgroundConfig"; "required": false; }; }, { "layoutUpdated": "layoutUpdated"; "dragStarted": "dragStarted"; "resizeStarted": "resizeStarted"; "dragEnded": "dragEnded"; "resizeEnded": "resizeEnded"; "gridItemResize": "gridItemResize"; }, ["_gridItems"], ["*"], true, never>;
 }
 export {};
