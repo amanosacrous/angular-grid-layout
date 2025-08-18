@@ -1,4 +1,4 @@
-export { ktdGridCompact, ktdTrackById } from './lib/utils/grid.utils';
+export { ktdGridCompact, ktdGridSortLayoutItems, ktdTrackById } from './lib/utils/grid.utils';
 export { KtdClientRect } from './lib/utils/client-rect';
 export * from './lib/directives/drag-handle';
 export * from './lib/directives/resize-handle';

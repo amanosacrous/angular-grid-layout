@@ -1,4 +1,4 @@
-import { CompactType } from './react-grid-layout.utils';
+import { CompactType, Layout } from './react-grid-layout.utils';
 import { KtdDraggingData, KtdDraggingMultipleData, KtdGridCfg, KtdGridCompactType, KtdGridItemRect, KtdGridLayout, KtdGridLayoutItem } from '../grid.definitions';
 import { KtdDictionary } from '../../types';
 import { KtdGridItemComponent } from '../grid-item/grid-item.component';
@@ -15,6 +15,13 @@ export declare function ktdGetGridItemRowHeight(layout: KtdGridLayout, gridHeigh
  * @param cols, number of columns of the grid.
  */
 export declare function ktdGridCompact(layout: KtdGridLayout, compactType: KtdGridCompactType, cols: number): KtdGridLayout;
+/**
+ * Call react-grid-layout utils 'sortLayoutItems()' function to return the 'layout' sorted by 'compactType'
+ * @param {Layout} layout
+ * @param {CompactType} compactType
+ * @returns {Layout}
+ */
+export declare function ktdGridSortLayoutItems(layout: Layout, compactType: CompactType): Layout;
 /** Returns a Dictionary where the key is the id and the value is the change applied to that item. If no changes Dictionary is empty. */
 export declare function ktdGetGridLayoutDiff(gridLayoutA: KtdGridLayoutItem[], gridLayoutB: KtdGridLayoutItem[]): KtdDictionary<{
     change: 'move' | 'resize' | 'moveresize';

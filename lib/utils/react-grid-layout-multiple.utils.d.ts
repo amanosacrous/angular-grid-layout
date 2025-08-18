@@ -16,5 +16,5 @@ export declare function moveElements(layout: Layout, items: {
     l: LayoutItem;
     x: number | null | undefined;
     y: number | null | undefined;
-}[], isUserAction: boolean | null | undefined, compactType: CompactType, cols: number, movingUpUser?: boolean): Layout;
-export declare function moveElementsAwayFromCollision(layout: Layout, collidesWith: LayoutItem, itemToMove: LayoutItem, isUserAction: boolean | null | undefined, compactType: CompactType, cols: number, movingUp: boolean | undefined): Layout;
+}[], isUserAction: boolean | null | undefined, preventCollision: boolean | null | undefined, compactType: CompactType, cols: number): Layout;
+export declare function moveElementsAwayFromCollision(layout: Layout, collidesWith: LayoutItem, itemToMove: LayoutItem, isUserAction: boolean | null | undefined, compactType: CompactType, cols: number): Layout;
