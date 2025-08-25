@@ -2,7 +2,7 @@ import { Component, ElementRef, Inject, NgZone, OnDestroy, OnInit, ViewChild } f
 import { MatSelectChange, MatSelectModule } from '@angular/material/select';
 import {
     KtdDragEnd, KtdDragStart, ktdGridCompact, KtdGridComponent, KtdGridItemComponent, KtdGridItemPlaceholder, KtdGridLayout, KtdGridLayoutItem,
-    KtdResizeEnd, KtdResizeStart, ktdTrackById
+    KtdResizeEnd, KtdResizeStart, ktdTrackById, ktdGridSortLayoutItems
 } from '@katoid/angular-grid-layout';
 import { ktdArrayRemoveItem } from '../utils';
 import { DOCUMENT, NgClass, NgFor } from '@angular/common';
@@ -16,7 +16,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatButtonModule } from '@angular/material/button';
 import { ktdGetOS } from './multi-item-handler.utils';
 import { fromEvent, merge, Subscription } from 'rxjs';
-import { debounceTime } from 'rxjs/operators';
+import { debounceTime, filter } from 'rxjs/operators';
 
 const realLifeLayout: KtdGridLayout = [
     {id: '0', x: 0, y: 0, w: 62, h: 3},
@@ -311,7 +311,8 @@ export class KtdMultiItemHandlerComponent implements OnInit, OnDestroy {
     compactType: 'vertical' | 'horizontal' | null = 'vertical';
     preventCollision = false;
     selectedItems: string[] = [];
-    layout: KtdGridLayout = realLifeLayout;
+    copiedItems: number
+    layout: KtdGridLayout = realLifeLayoutSmall;
 
     resizeSubscription: Subscription;
 
@@ -322,7 +323,15 @@ export class KtdMultiItemHandlerComponent implements OnInit, OnDestroy {
         public elementRef: ElementRef,
         @Inject(DOCUMENT) public document: Document
     ) {
-        // this.ngZone.onUnstable.subscribe(() => console.log('UnStable'));
+        fromEvent<KeyboardEvent>(document, 'keydown').pipe(
+            filter(event => {
+                const isCtrlV = event.ctrlKey && event.key.toLowerCase() === 'v'; // Windows
+                const isCmdV  = event.metaKey && event.key.toLowerCase() === 'v'; // Mac
+                return isCtrlV || isCmdV;
+            })
+        ).subscribe(() => {
+            this.duplicateSelectedElements();
+        });
     }
 
     ngOnInit() {
@@ -396,19 +405,24 @@ export class KtdMultiItemHandlerComponent implements OnInit, OnDestroy {
     }
 
     /** Adds a grid item to the layout */
-    addItemToLayout() {
-        const maxId = this.layout.reduce(
-            (acc, cur) => Math.max(acc, parseInt(cur.id, 10)),
-            -1
-        );
-        const nextId = maxId + 1;
-        const newLayoutItem: KtdGridLayoutItem = {
-            id: nextId.toString(),
-            x: -1,
-            y: -1,
-            w: 2,
-            h: 2
-        };
+    addItemToLayout(item?: KtdGridLayoutItem) {
+        let newLayoutItem: KtdGridLayoutItem | undefined = item;
+        if(!newLayoutItem){
+
+
+            const maxId = this.layout.reduce(
+                (acc, cur) => Math.max(acc, parseInt(cur.id, 10)),
+                -1
+            );
+            const nextId = maxId + 1;
+            newLayoutItem = {
+                id: nextId.toString(),
+                x: -1,
+                y: -1,
+                w: 2,
+                h: 2
+            };
+        }
         // Important: Don't mutate the array, create new instance. This way notifies the Grid component that the layout has changed.
         this.layout = [newLayoutItem, ...this.layout];
         this.layout = ktdGridCompact(this.layout, this.compactType, this.cols);
@@ -497,4 +511,30 @@ export class KtdMultiItemHandlerComponent implements OnInit, OnDestroy {
             }
         }
     }
+
+    /*
+     * Paste a copy of "this.selectedItems" below the last selected item (preserving their positions)
+     */
+    private duplicateSelectedElements(){
+        const maxId = this.layout.reduce(
+            (acc, cur) => Math.max(acc, parseInt(cur.id, 10)),
+            -1
+        );
+        let nextId = maxId;
+        const lastY: number = this.selectedItems.length>0 ? this.layout.find((l)=>l.id===this.selectedItems[this.selectedItems.length-1])!.y : 0;
+        const layoutItemsSorted: KtdGridLayoutItem[] = ktdGridSortLayoutItems(this.selectedItems.map((gridItemId: string)=> this.layout.find((l)=>l.id===gridItemId)!), this.compactType);
+        layoutItemsSorted.reverse().forEach((layoutItem) => {
+            nextId++;
+            const newLayoutItem = {
+                id: nextId.toString(),
+                w: layoutItem.w,
+                h: layoutItem.h,
+                x: layoutItem.x,
+                y: lastY + 0.5
+            };
+
+            this.addItemToLayout(newLayoutItem);
+        });
+    }
+
 }

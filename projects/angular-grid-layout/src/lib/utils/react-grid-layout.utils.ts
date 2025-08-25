@@ -213,6 +213,13 @@ function resolveCompactionCollision(
         if (otherItem.static) {
             continue;
         }
+
+        // Optimization: we can break early if we know we're past this el
+        // We can do this b/c it's a sorted layout
+        if ((axis==='x' && otherItem.y > item.y + item.h ) || (axis==='y' && otherItem.y > moveToCoord+item.h)) {
+            break;
+        }
+
         if (collides(item, otherItem)) {
             resolveCompactionCollision(
                 layout,

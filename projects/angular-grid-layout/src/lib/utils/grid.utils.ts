@@ -1,4 +1,4 @@
-import { compact, CompactType, getFirstCollision, Layout, LayoutItem, moveElement } from './react-grid-layout.utils';
+import { compact, CompactType, getFirstCollision, Layout, LayoutItem, moveElement, sortLayoutItems } from './react-grid-layout.utils';
 import {
     KtdDraggingData, KtdDraggingMultipleData, KtdGridCfg, KtdGridCompactType, KtdGridItemRect, KtdGridItemRenderData, KtdGridLayout, KtdGridLayoutItem
 } from '../grid.definitions';
@@ -30,6 +30,19 @@ export function ktdGridCompact(layout: KtdGridLayout, compactType: KtdGridCompac
     return compact(layout, compactType, cols)
         // Prune react-grid-layout compact extra properties.
         .map(item => ({ id: item.id, x: item.x, y: item.y, w: item.w, h: item.h, minW: item.minW, minH: item.minH, maxW: item.maxW, maxH: item.maxH }));
+}
+
+/**
+ * Call react-grid-layout utils 'sortLayoutItems()' function to return the 'layout' sorted by 'compactType'
+ * @param {Layout} layout
+ * @param {CompactType} compactType
+ * @returns {Layout}
+ */
+export function ktdGridSortLayoutItems(
+    layout: Layout,
+    compactType: CompactType,
+): Layout {
+    return sortLayoutItems(layout,compactType)
 }
 
 function screenXToGridX(screenXPos: number, cols: number, width: number, gap: number): number {
